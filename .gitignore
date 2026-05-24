@@ -1,0 +1,43 @@
+# =============================================
+# Root .gitignore – Fintura monorepo
+# =============================================
+
+# ---- Environment files (NEVER commit these) ----
+.env
+.env.local
+.env.*.local
+*.env
+
+# ---- Next.js / Node ----
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.env.local
+.npm
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+apps/parser-service/.pytest_cache/
+
+# ---- macOS ----
+.DS_Store
+*.DS_Store
+**/.DS_Store
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+
+# ---- Docker volumes / data ----
+data/
