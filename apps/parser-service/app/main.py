@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import get_supabase_client
 from app.services.detector import registry
 from app.services.cleaner import clean_narration
+from app.services.ocr import extract_invoice_data
 
 app = FastAPI(title="Transaction Intelligence Parser Service", version="1.0.0")
 
@@ -453,6 +454,111 @@ async def apply_mapping(request: ApplyMappingRequest, background_tasks: Backgrou
         credit_col=request.credit_col,
         balance_col=request.balance_col,
         header_row_index=request.header_row_index
+    )
+    return {"status": "ACKNOWLEDGED"}
+
+class ProcessInvoiceRequest(BaseModel):
+    invoice_id: str
+    file_path: str
+
+def process_invoice_background(invoice_id: str, file_path: str):
+    """
+    Downloads, OCRs, and parses invoice documents asynchronously using Gemini API.
+    """
+    supabase = get_supabase_client()
+    try:
+        # 1. Update invoice status to PROCESSING
+        supabase.table("invoices").update({
+            "status": "PROCESSING"
+        }).eq("id", invoice_id).execute()
+
+        # 2. Download raw file from Supabase Storage
+        bucket_name = "invoices"
+        file_data = supabase.storage.from_(bucket_name).download(file_path)
+
+        # Determine MIME type based on file extension
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == '.pdf':
+            mime_type = 'application/pdf'
+        elif ext == '.png':
+            mime_type = 'image/png'
+        elif ext in ['.jpg', '.jpeg']:
+            mime_type = 'image/jpeg'
+        else:
+            mime_type = 'application/octet-stream'
+
+        # 3. Call structured OCR extraction service
+        extracted_data = extract_invoice_data(file_data, mime_type)
+
+        # 4. Save extracted metadata back to invoices table
+        metadata_update = {
+            "invoice_number": extracted_data.get("invoice_number"),
+            "invoice_date": extracted_data.get("invoice_date"),
+            "due_date": extracted_data.get("due_date"),
+            "vendor_name": extracted_data.get("vendor_name"),
+            "vendor_address": extracted_data.get("vendor_address"),
+            "vendor_tax_id": extracted_data.get("vendor_tax_id"),
+            "customer_name": extracted_data.get("customer_name"),
+            "customer_address": extracted_data.get("customer_address"),
+            "customer_tax_id": extracted_data.get("customer_tax_id"),
+            "subtotal": extracted_data.get("subtotal"),
+            "tax_amount": extracted_data.get("tax_amount"),
+            "discount": extracted_data.get("discount"),
+            "total_amount": extracted_data.get("total_amount"),
+            "currency": extracted_data.get("currency", "INR"),
+            "status": "COMPLETED",
+            "completed_at": "now()"
+        }
+        
+        supabase.table("invoices").update(metadata_update).eq("id", invoice_id).execute()
+
+        # 5. Insert line items
+        items = extracted_data.get("items", [])
+        if items:
+            # Delete any existing line items for this invoice
+            supabase.table("invoice_items").delete().eq("invoice_id", invoice_id).execute()
+            
+            items_to_insert = []
+            for item in items:
+                items_to_insert.append({
+                    "invoice_id": invoice_id,
+                    "description": item.get("description", "Unknown Item"),
+                    "quantity": float(item.get("quantity", 1.0)),
+                    "unit_price": float(item.get("unit_price", 0.0)),
+                    "tax_rate": float(item.get("tax_rate", 0.0)),
+                    "tax_amount": float(item.get("tax_amount", 0.0)),
+                    "total": float(item.get("total", 0.0))
+                })
+            
+            # Batch insert in chunks of 50
+            batch_size = 50
+            for i in range(0, len(items_to_insert), batch_size):
+                batch = items_to_insert[i:i + batch_size]
+                supabase.table("invoice_items").insert(batch).execute()
+
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Failed to process invoice {invoice_id}: {error_msg}")
+        traceback.print_exc()
+
+        # Mark invoice as FAILED
+        try:
+            supabase.table("invoices").update({
+                "status": "FAILED",
+                "error_message": error_msg[:500]
+            }).eq("id", invoice_id).execute()
+        except Exception as db_err:
+            print(f"Failed to update failed invoice status: {db_err}")
+
+@app.post("/process-invoice", status_code=status.HTTP_202_ACCEPTED)
+async def process_invoice(request: ProcessInvoiceRequest, background_tasks: BackgroundTasks):
+    """
+    Triggers asynchronous invoice OCR parsing.
+    """
+    background_tasks.add_task(
+        process_invoice_background,
+        invoice_id=request.invoice_id,
+        file_path=request.file_path
     )
     return {"status": "ACKNOWLEDGED"}
 
