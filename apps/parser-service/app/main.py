@@ -14,11 +14,16 @@ from app.services.detector import registry
 from app.services.cleaner import clean_narration
 from app.services.ocr import extract_invoice_data
 
+from app.core.config import settings
+
 app = FastAPI(title="Transaction Intelligence Parser Service", version="1.0.0")
+
+# Parse allowed origins from configuration settings
+allowed_origins_list = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -217,6 +222,10 @@ def process_statement_background(job_id: str, file_path: str):
             bank_name = "YES_BANK"
         elif "IDFC" in parser_name:
             bank_name = "IDFC_FIRST"
+        elif "HDFC" in parser_name:
+            bank_name = "HDFC"
+        elif "Axis" in parser_name:
+            bank_name = "AXIS"
         else:
             bank_name = "UNKNOWN"
 

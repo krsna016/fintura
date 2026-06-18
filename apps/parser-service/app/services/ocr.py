@@ -41,8 +41,8 @@ def extract_invoice_data(file_bytes: bytes, mime_type: str) -> dict:
     try:
         genai.configure(api_key=api_key)
         
-        # Use gemini-2.5-flash since it is the latest supported model
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # Use gemini-1.5-flash since gemini-2.5-flash is not a standard model name
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         prompt = (
             "Extract all metadata and line items from this invoice. "

@@ -341,7 +341,8 @@ export default function ReviewPage({ params }: { params: Promise<{ jobId: string
     
     try {
       const parserServiceUrl = process.env.NEXT_PUBLIC_PARSER_SERVICE_URL || 'http://localhost:8000';
-      const response = await fetch(`${parserServiceUrl}/apply-mapping`, {
+      const backendUrl = parserServiceUrl.startsWith('http') ? parserServiceUrl : `https://${parserServiceUrl}`;
+      const response = await fetch(`${backendUrl}/apply-mapping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
