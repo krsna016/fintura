@@ -97,3 +97,60 @@ class BaseBankParser(ABC):
                     continue
                     
         return cleaned_date
+
+    def _normalize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.dropna(how='all')
+        
+        # Identify columns
+        cols_lower = {str(c).lower(): c for c in df.columns}
+        
+        date_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['date', 'txn date', 'value'])), None)
+        narration_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['narration', 'description', 'particulars', 'remarks'])), None)
+        balance_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['balance', 'bal'])), None)
+        dr_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['withdrawal', 'debit', 'dr'])), None)
+        cr_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['deposit', 'credit', 'cr'])), None)
+        amount_col = next((c for cl, c in cols_lower.items() if any(x in cl for x in ['amount', 'txn amt'])), None)
+        
+        def process_row(row):
+            try:
+                date_val = str(row[date_col]).strip() if date_col and pd.notna(row[date_col]) else ""
+                narration = str(row[narration_col]).strip() if narration_col and pd.notna(row[narration_col]) else ""
+                
+                amount = 0.0
+                tx_type = "DR"
+                if dr_col and cr_col:
+                    amount_cr = self.clean_float(row.get(cr_col))
+                    amount_dr = self.clean_float(row.get(dr_col))
+                    if amount_cr > 0:
+                        amount = amount_cr
+                        tx_type = "CR"
+                    else:
+                        amount = amount_dr
+                        tx_type = "DR"
+                elif amount_col:
+                    raw_amount = self.clean_float(row.get(amount_col))
+                    amount = abs(raw_amount)
+                    tx_type = "DR" if raw_amount < 0 else "CR"
+                else:
+                    return None  # Will be dropped
+                    
+                balance = row[balance_col] if balance_col and pd.notna(row[balance_col]) else 0.0
+                
+                return pd.Series({
+                    "transaction_date": date_val,
+                    "raw_narration": narration,
+                    "amount": amount,
+                    "type": tx_type,
+                    "running_balance": balance
+                })
+            except Exception:
+                return None
+        
+        parsed_df = df.apply(process_row, axis=1)
+        # Drop rows that failed parsing
+        if not parsed_df.empty:
+            parsed_df = parsed_df.dropna(how='all')
+        else:
+            parsed_df = pd.DataFrame(columns=["transaction_date", "raw_narration", "amount", "type", "running_balance"])
+            
+        return parsed_df

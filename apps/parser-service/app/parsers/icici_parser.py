@@ -1,8 +1,12 @@
 import re
 import pandas as pd
+import logging
 import pdfplumber
 from datetime import datetime
 from app.parsers.base import BaseBankParser
+
+logger = logging.getLogger(__name__)
+
 
 class ICICIParser(BaseBankParser):
     def detect(self, first_page_text: str) -> bool:
@@ -130,57 +134,3 @@ class ICICIParser(BaseBankParser):
 
         return pd.DataFrame(parsed_data)
 
-    def _normalize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.dropna(how='all')
-        
-        date_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['date', 'txn date', 'value date'])), None)
-        narration_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['narration', 'description', 'particulars', 'remarks'])), None)
-        balance_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['balance', 'bal'])), None)
-        
-        dr_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['withdrawal', 'debit', 'dr'])), None)
-        cr_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['deposit', 'credit', 'cr'])), None)
-        amount_col = next((col for col in df.columns if any(x in str(col).lower() for x in ['amount', 'txn amt'])), None)
-
-        parsed_data = []
-        for _, row in df.iterrows():
-            try:
-                date_val = str(row[date_col]).strip() if date_col else ""
-                narration = str(row[narration_col]).strip() if narration_col else ""
-                
-                if dr_col and cr_col:
-                    dr_val = row[dr_col]
-                    cr_val = row[cr_col]
-                    
-                    amount_cr = self.clean_float(cr_val)
-                    amount_dr = self.clean_float(dr_val)
-                    
-                    if amount_cr > 0:
-                        amount = amount_cr
-                        tx_type = "CR"
-                    else:
-                        amount = amount_dr
-                        tx_type = "DR"
-                elif amount_col:
-                    amount = row[amount_col]
-                    type_col = next((col for col in df.columns if 'type' in str(col).lower() or 'cr/dr' in str(col).lower()), None)
-                    if type_col:
-                        tx_type = "CR" if "cr" in str(row[type_col]).lower() else "DR"
-                    else:
-                        tx_type = "DR" if self.clean_float(amount) < 0 else "CR"
-                        amount = abs(self.clean_float(amount))
-                else:
-                    continue
-                
-                balance = row[balance_col] if balance_col else 0.0
-                
-                parsed_data.append({
-                    "transaction_date": date_val,
-                    "raw_narration": narration,
-                    "amount": amount,
-                    "type": tx_type,
-                    "running_balance": balance
-                })
-            except Exception:
-                continue
-
-        return pd.DataFrame(parsed_data)
