@@ -1,8 +1,17 @@
-# Enforce LF endings on check-in
+# Enforce LF endings on check-in for all text files
 * text=auto eol=lf
 
-# Exclude binaries from normalization
-*.png -text
-*.jpg -text
-*.ico -text
+# Explicit binary files
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.ico filter=lfs diff=lfs merge=lfs -text
 *.pdf -text
+
+# Language overrides
+*.py diff=python
+*.js diff=javascript
+*.ts diff=typescript
+*.tsx diff=typescript
+*.css diff=css
+*.scss diff=css
+*.html diff=html
