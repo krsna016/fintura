@@ -12,7 +12,7 @@ Fintura (formerly TIP) is an enterprise-grade, commercial SaaS transaction intel
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 Fintura is built using a modern decoupled monorepo architecture. 
 
@@ -40,7 +40,7 @@ fintura/
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 - **Document Parser Pipeline:** Ingests bank statement PDFs, extracts transactional tabular data, handles multi-page tables, and resolves running balances.
 - **Unified Web Console:** A dashboard to upload files, review transaction items, correct parsed categories, and export records.
@@ -49,7 +49,7 @@ fintura/
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Frontend (`apps/web`)
 * Next.js 15 (React 19, App Router)
@@ -65,7 +65,7 @@ fintura/
 
 ---
 
-## ⚙️ Getting Started & Local Setup
+## Getting Started & Local Setup
 
 ### 1. Prerequisites
 Ensure you have the following installed:
@@ -90,7 +90,7 @@ The application will launch on:
 
 ---
 
-## 💻 Environment Variables Configuration
+## Environment Variables Configuration
 
 ### Frontend (`apps/web/.env.local`)
 Create a `.env.local` inside `apps/web` containing:
@@ -109,7 +109,7 @@ PORT=8000
 
 ---
 
-## 🧪 Testing & Linting Pipelines
+## Testing & Linting Pipelines
 
 Run verification tests and syntax format checks from the root folder:
 
@@ -126,7 +126,7 @@ make format
 
 ---
 
-## 🐳 Docker Deployment & Production Builds
+## Docker Deployment & Production Builds
 
 The root `docker-compose.yml` configures the orchestration details for local testing:
 
@@ -153,10 +153,10 @@ docker build -t fintura-parser ./apps/parser-service
 
 ---
 
-## 🛡️ Security Policies
+## Security Policies
 We enforce Row-Level Security (RLS) across all Supabase schemas to prevent cross-tenant exposure. Static security scans are run weekly using **GitHub CodeQL** and dependency audits via **Dependabot**. For reporting security bugs, see our [SECURITY.md](SECURITY.md) guidelines.
 
 ---
 
-## 📜 License
+## License
 This project is licensed under the **Apache License 2.0**. For details, view the [LICENSE](LICENSE) file.
